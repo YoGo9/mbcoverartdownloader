@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cover Art Downloader</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 2em;
+      max-width: 900px;
+      margin: auto;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 1.5em;
+    }
+    input, select, button {
+      padding: 0.6em;
+      margin: 0.5em 0;
+      font-size: 1em;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      background-color: #161b22;
+      color: #c9d1d9;
+    }
+    button {
+      cursor: pointer;
+      background-color: #238636;
+      color: white;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2ea043;
+    }
+    .thumb {
+      margin-top: 2em;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.2em;
+      justify-content: center;
+    }
+    .thumb img {
+      border-radius: 8px;
+      max-width: 180px;
+      transition: transform 0.3s;
+      cursor: pointer;
+    }
+    .thumb img:hover {
+      transform: scale(1.05);
+    }
+    .thumb div {
+      background: #161b22;
+      padding: 0.8em;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    }
+    a {
+      color: #58a6ff;
+      display: block;
+      margin-top: 0.3em;
+      text-decoration: none;
+    }
+    small {
+      color: #8b949e;
+    }
+    #modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #modal img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>MusicBrainz Cover Art Downloader</h2>
+  <label for="releaseId">Release MBID or URL:</label><br>
+  <input type="text" id="releaseId" placeholder="e.g. 1a34edab-209e-41bb-aead-906d992f8565" style="width: 100%;"><br><label for="size">Image Size:</label><br> <select id="size"> <option value="250">Small (250px)</option> <option value="500">Medium (500px)</option> <option value="1200">Large (1200px)</option> <option value="full">Full Size</option> </select><br>
+
+<button onclick="loadImages()">Load Covers</button> <button onclick="downloadAllZip()">Download All (ZIP)</button>
+
+  <div class="thumb" id="gallery"></div>
+  <div id="modal" onclick="this.style.display='none'">
+    <img src="" alt="Preview">
+  </div>  <script>
+    let currentImages = [];
+
+    function extractMBID(input) {
+      const match = input.match(/[0-9a-fA-F-]{36}/);
+      return match ? match[0] : null;
+    }
+
+    async function loadImages() {
+      const input = document.getElementById('releaseId').value;
+      const size = document.getElementById('size').value;
+      const mbid = extractMBID(input);
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+      currentImages = [];
+
+      if (!mbid) {
+        alert("Please enter a valid MusicBrainz Release MBID or URL.");
+        return;
+      }
+
+      const url = `https://coverartarchive.org/release/${mbid}`;
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Release not found.");
+        const data = await res.json();
+
+        data.images.forEach((img, index) => {
+          let imageUrl = size === 'full' ? img.image : img.thumbnails[size];
+          const types = img.types.length > 0 ? img.types.join("_") : 'Image';
+          currentImages.push({ url: imageUrl, types });
+
+          const div = document.createElement('div');
+          div.innerHTML = `
+            <img src="${imageUrl}" alt="cover" onclick="showModal('${img.image}')">
+            <a href="${imageUrl}" download target="_blank">Download</a>
+            <small>${img.types.join(", ")}</small>
+          `;
+          gallery.appendChild(div);
+        });
+      } catch (err) {
+        alert("Failed to load cover art: " + err.message);
+      }
+    }
+
+    async function downloadAllZip() {
+      if (currentImages.length === 0) {
+        alert("No images loaded.");
+        return;
+      }
+
+      const zip = new JSZip();
+      const folder = zip.folder("cover_art");
+      const typeCounter = {};
+
+      await Promise.all(currentImages.map(async (img) => {
+        const response = await fetch(img.url);
+        const blob = await response.blob();
+
+        const baseType = img.types || 'Image';
+        typeCounter[baseType] = (typeCounter[baseType] || 0) + 1;
+        const fileName = `${baseType}_${typeCounter[baseType]}.jpg`;
+
+        folder.file(fileName, blob);
+      }));
+
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, "cover_art.zip");
+    }
+
+    function showModal(src) {
+      const modal = document.getElementById('modal');
+      modal.style.display = 'flex';
+      modal.querySelector('img').src = src;
+    }
+  </script></body>
+</html>
