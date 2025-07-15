@@ -84,6 +84,15 @@
       max-height: 90vh;
       border-radius: 10px;
     }
+    footer {
+      text-align: center;
+      margin-top: 3em;
+      color: #8b949e;
+    }
+    footer a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
@@ -96,7 +105,9 @@
   <div class="thumb" id="gallery"></div>
   <div id="modal" onclick="this.style.display='none'">
     <img src="" alt="Preview">
-  </div>  <script>
+  </div>  <footer>
+    Made by <a href="https://github.com/YoGo9/mbcoverartdownloader" target="_blank">YoMo with AI assistance</a>
+  </footer>  <script>
     let currentImages = [];
 
     function extractMBID(input) {
